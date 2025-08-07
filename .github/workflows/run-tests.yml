@@ -2,7 +2,7 @@ name: Run API Tests with Docker Hub Login
 
 on:
   push:
-    branches: [ main, test-actions ]
+    branches: [ test-actions ]
   workflow_dispatch:
 
 jobs:
@@ -43,7 +43,7 @@ jobs:
       - name: Build and start backend
         run: |
           docker run -d --name backend \
-            -e ConnectionStrings__DefaultConnection="Host=db;Database=timedeposit;Username=postgres;Password=1234;" \
+            -e ConnectionStrings__DefaultConnection="Host=db;Database=timedeposit;Username=postgres;Password=12345;" \
             -p 8080:8080 \
             --network host \
             ashraf354/timedeposit-backend:latest
