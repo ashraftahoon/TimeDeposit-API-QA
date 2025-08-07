@@ -1,0 +1,38 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="BankingApp_Test_Suite"  parallel="tests" thread-count="3">
+
+    <!-- Admin Tests -->
+    <test name="Admin_Tests">
+        <classes>
+            <class name="tests.admin.AdminDepositTests"/>
+        </classes>
+    </test>
+
+    <!-- Authentication Tests -->
+    <test name="Authentication_Tests">
+        <classes>
+            <class name="tests.auth.LoginTests"/>
+            <class name="tests.auth.ProfileUpdateTests"/>
+            <class name="tests.auth.RegistrationTests"/>
+        </classes>
+    </test>
+
+    <!-- Deposit Tests -->
+    <test name="Deposit_Tests">
+        <classes>
+            <class name="tests.deposits.CrowdDepositTests"/>
+            <class name="tests.deposits.TimeDepositTests"/>
+            <class name="tests.deposits.TopUpTests"/>
+        </classes>
+    </test>
+
+    <!-- Mock Tests -->
+    <test name="Mock_Tests">
+        <classes>
+            <class name="tests.mocks.external.PaymentMockTest"/>
+        </classes>
+    </test>
+    <listeners>
+        <listener class-name="io.qameta.allure.testng.AllureTestNg"/>
+    </listeners>
+</suite>
