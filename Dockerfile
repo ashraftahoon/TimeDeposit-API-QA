@@ -17,5 +17,5 @@ COPY --from=build /app/out .
 # Expose port 5059
 EXPOSE 5059
 
-# Run the application
+# Run the application test how it works
 ENTRYPOINT ["dotnet", "TimeDepositAPI.dll"]
