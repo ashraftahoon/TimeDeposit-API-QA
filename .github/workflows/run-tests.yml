@@ -48,7 +48,7 @@ jobs:
             --network test-net \
             -e ASPNETCORE_ENVIRONMENT=Development \
             -e ConnectionStrings__DefaultConnection="Host=db;Database=timedeposit;Username=postgres;Password=1234;" \
-            -p 8080:8080 \
+            -p 8081:8081 \
             ashraf354/timedeposit-backend:latest
 
       - name: Wait for backend to be healthy
