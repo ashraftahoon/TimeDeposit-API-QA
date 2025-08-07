@@ -1,38 +1,21 @@
-name: Build, Push, and Test API
+name: Run API Tests with Docker Hub Login
 
 on:
   push:
     branches: [ main, test-actions ]
   workflow_dispatch:
 
-env:
-  IMAGE_NAME: ashraf354/timedeposit-backend
-
 jobs:
-  build-and-push:
+  test:
     runs-on: ubuntu-latest
 
+    # First login step so pulling private images works
     steps:
-      - name: 📦 Checkout Code
-        uses: actions/checkout@v3
-
-      - name: 🔐 Docker Hub Login
+      - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_ACCESSTOKEN}}
-
-      - name: 🛠️ Build Docker Image
-        run: |
-          docker build -t $IMAGE_NAME:latest .
-
-      - name: 📤 Push Image to Docker Hub
-        run: |
-          docker push $IMAGE_NAME:latest
-
-  test:
-    needs: build-and-push
-    runs-on: ubuntu-latest
 
     services:
       backend:
@@ -56,11 +39,23 @@ jobs:
           --health-retries 10
 
     steps:
-      - name: 📦 Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: ☕ Set up Java
+      - name: Set up Java
         uses: actions/setup-java@v3
         with:
-          distribution: 'temurin'
-          java-version: '21'
+          distribution: temurin
+          java-version: 21
+
+      - name: Run API Tests
+        run: mvn clean test
+
+      - name: Generate Allure Report
+        run: mvn allure:report
+
+      - name: Upload Allure Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report
+          path: target/site/allure-maven-plugin
