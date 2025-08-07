@@ -26,7 +26,7 @@ jobs:
         run: |
           docker build -t $IMAGE_NAME:latest .
 
-      - name: 📤 Push Image to Docker Hub
+      - name:  Push Image to Docker Hub
         run: |
           docker push $IMAGE_NAME:latest
 
