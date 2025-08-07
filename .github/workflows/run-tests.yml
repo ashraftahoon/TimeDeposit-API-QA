@@ -6,14 +6,14 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
+  api-test:
     runs-on: ubuntu-latest
 
     services:
       backend:
         image: ashraf354/timedeposit-backend:latest
         ports:
-          - 8080:80 # Update based on your backend exposed port
+          - 8080:80
         options: >-
           --health-cmd "curl -f http://localhost:80/health || exit 1"
           --health-interval 10s
@@ -23,34 +23,39 @@ jobs:
       db:
         image: ashraf354/timedeposit-db:latest
         ports:
-          - 5432:5432 # or whatever DB port
+          - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U postgres" # Or your DB health command
+          --health-cmd "pg_isready -U postgres"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
 
     steps:
-      - name: Checkout code
+      - name: 📦 Checkout Code
         uses: actions/checkout@v3
 
-      - name: Set up JDK
+      - name: ☕ Set up Java
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
-          java-version: '21'  # or 11/21 based on your RestAssured setup
+          java-version: '21'
 
-      - name: Run API Tests with Maven
+      - name: 📦 Cache Maven dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
+
+      - name: 🧪 Run API Tests
+        working-directory: ./restassured-tests
         run: mvn clean test
 
-      - name: Generate Allure Report
-        run: |
-          mvn allure:report
-          mvn allure:serve &
-          sleep 15
+      - name: 📊 Generate Allure Report
+        working-directory: ./restassured-tests
+        run: mvn allure:report
 
-      # Optional: Upload Allure Report as artifact
-      - name: Upload Allure Report
+      - name: ⬆️ Upload Allure Report
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
