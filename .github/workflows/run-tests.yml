@@ -6,7 +6,12 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest  # Switch to Ubuntu for Docker support
+
+    services:
+      docker:
+        image: docker:24.0.2
+        options: --privileged
 
     steps:
       - name: Checkout code
@@ -25,14 +30,35 @@ jobs:
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-maven
 
+      - name: Set up Docker Compose
+        run: |
+          docker-compose up -d
+          echo "Waiting for backend to be healthy..."
+          for i in {1..30}; do
+            if curl -s http://localhost:8080/actuator/health | grep '"status":"UP"' > /dev/null; then
+              echo "Backend is up!"
+              break
+            fi
+            echo "Waiting ($i)..."
+            sleep 5
+          done
+
       - name: Run tests with Maven
         run: mvn clean test
 
       - name: Generate Allure Report
         run: mvn allure:report
 
-      - name: Upload Allure Results
+      - name: Upload Allure Report Artifact
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
           path: target/site/allure-maven-plugin
+
+      - name: Comment Allure Report link on PR
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: allure-report
+          message: |
+            [Click here to view the Allure Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
