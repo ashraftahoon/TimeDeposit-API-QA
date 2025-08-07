@@ -28,11 +28,11 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Install Allure CLI
+      - name: Install Allure
         run: |
-          sudo apt-add-repository ppa:qameta/allure -y
-          sudo apt-get update
-          sudo apt-get install allure -y
+          sudo apt update
+          sudo apt install -y default-jre
+          npm install -g allure-commandline
 
       - name: Build and run Docker Compose
         run: |
