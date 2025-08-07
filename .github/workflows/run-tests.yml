@@ -1,12 +1,11 @@
-name: API Tests
+name: Debug API Connection
 
-on:
-  push:
-    branches: [main, test-actions]
+on: [workflow_dispatch]
 
 jobs:
-  test:
+  debug:
     runs-on: ubuntu-latest
+
     services:
       db:
         image: postgres:15
@@ -32,26 +31,40 @@ jobs:
           distribution: temurin
 
       - name: Build backend
-        run: |
-          ./mvnw clean package -DskipTests
+        run: ./mvnw clean package -DskipTests
 
-      - name: Start backend
+      - name: Start services and debug
         run: |
+          # Start backend
           docker run -d --name backend \
             -e ConnectionStrings__DefaultConnection="Host=db;Database=timedeposit;Username=postgres;Password=Nada@@11;" \
             -p 8080:8080 \
             --network host \
             ${{ github.workspace }}/target/time-deposit-api.jar
-          sleep 15 # Wait for startup
-          curl --retry 5 --retry-delay 3 http://localhost:8080/actuator/health
-
-      - name: Run tests
-        env:
-          API_BASE_URL: http://localhost:8080
-        run: |
-          ./mvnw test
-
-      - name: Show logs if tests fail
-        if: failure()
-        run: |
+          
+          # Wait and verify
+          echo "Waiting for services..."
+          sleep 20
+          
+          echo "=== NETWORK DEBUGGING ==="
+          echo "Containers:"
+          docker ps -a
+          echo ""
+          echo "Networks:"
+          docker network ls
+          echo ""
+          echo "Backend logs:"
           docker logs backend
+          echo ""
+          echo "DB logs:"
+          docker logs db
+          echo ""
+          echo "=== CONNECTION TESTS ==="
+          echo "From host to backend:"
+          curl -v http://localhost:8080/health || echo "Failed to connect to backend"
+          echo ""
+          echo "From backend container to db:"
+          docker exec backend ping -c 3 db
+          echo ""
+          echo "DB connection test from backend:"
+          docker exec backend curl -v "http://localhost:8080/actuator/health" || echo "Health check failed"
