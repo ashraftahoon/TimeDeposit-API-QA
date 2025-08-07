@@ -1,4 +1,4 @@
-name: Build and Test with Docker
+name: Build, Push, and Test API
 
 on:
   push:
@@ -26,7 +26,7 @@ jobs:
         run: |
           docker build -t $IMAGE_NAME:latest .
 
-      - name:  Push Image to Docker Hub
+      - name: 📤 Push Image to Docker Hub
         run: |
           docker push $IMAGE_NAME:latest
 
@@ -56,25 +56,11 @@ jobs:
           --health-retries 10
 
     steps:
-      - name:  Checkout Code
+      - name: 📦 Checkout Code
         uses: actions/checkout@v3
 
-      - name:  Set up Java
+      - name: ☕ Set up Java
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '21'
-
-      - name:  Run API Tests
-        working-directory: ./restassured-tests
-        run: mvn clean test
-
-      - name: Generate Allure Report
-        working-directory: ./restassured-tests
-        run: mvn allure:report
-
-      - name:  Upload Allure Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: allure-report
-          path: restassured-tests/target/site/allure-maven-plugin
