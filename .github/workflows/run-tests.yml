@@ -3,12 +3,38 @@ name: Backend Integration Tests with Maven
 on:
   push:
     branches:
-      - main
+      - master
   pull_request:
 
 jobs:
   integration-test:
     runs-on: ubuntu-latest
+
+    services:
+      db:
+        image: ashraf354/timedeposit-db:latest
+        env:
+          POSTGRES_PASSWORD: 1234
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      backend:
+        image: ashraf354/timedeposit-backend:latest
+        ports:
+          - 8080:8080
+        env:
+          ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=timedeposit;Username=postgres;Password=1234"
+        options: >-
+          --network-alias backend
+          --health-cmd "curl --fail http://localhost:8080/health || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
 
     steps:
       - name: Checkout repo
@@ -26,34 +52,8 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-      - name: Pull backend and DB images
-        run: |
-          docker pull ashraf354/timedeposit-backend:latest
-          docker pull ashraf354/timedeposit-db:latest
-
-      - name: Create Docker network
-        run: docker network create test-net || true
-
-      - name: Start DB container
-        run: |
-          docker run -d --rm --name test-db --network test-net \
-          -e POSTGRES_PASSWORD=1234 \
-          ashraf354/timedeposit-db:latest
-
-      - name: Start Backend container
-        run: |
-          docker run -d --rm --name test-backend --network test-net \
-          -p 8080:8080 \
-          -e ConnectionStrings__DefaultConnection="Host=test-db;Port=5432;Database=timedeposit;Username=postgres;Password=1234" \
-          ashraf354/timedeposit-backend:latest
-
-      - name: Wait for services to be ready
-        run: sleep 20
+      - name: Wait for services to be healthy
+        run: sleep 30
 
       - name: Run Maven tests
         run: mvn clean test
-
-      - name: Cleanup
-        run: |
-          docker stop test-backend test-db
-          docker network rm test-net
