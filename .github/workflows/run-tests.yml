@@ -20,7 +20,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
-      db:
+      db: 
         image: ashraf354/timedeposit-db:latest
         ports:
           - 5432:5432
