@@ -2,12 +2,13 @@ name: Run API Tests with Docker Hub Login
 
 on:
   push:
-    branches: [ main , test-actions ]
+    branches: [ main, test-actions ]
   workflow_dispatch:
 
 jobs:
   test:
     runs-on: ubuntu-latest
+
     services:
       db:
         image: postgres:15
@@ -39,22 +40,36 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - name: Build and start backend
+      - name: Start backend container
         run: |
+          docker pull ashraf354/timedeposit-backend:latest
+          docker network create test-net
           docker run -d --name backend \
-            -e ConnectionStrings__DefaultConnection="Host=localhost;Database=timedeposit;Username=postgres;Password=1234;" \
+            --network test-net \
+            -e ASPNETCORE_ENVIRONMENT=Development \
+            -e ConnectionStrings__DefaultConnection="Host=db;Database=timedeposit;Username=postgres;Password=1234;" \
             -p 8080:8080 \
-            --network host \
             ashraf354/timedeposit-backend:latest
-          sleep 15 # Wait for backend to initialize
+
+      - name: Wait for backend to be healthy
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:8080/health | grep -q "Healthy"; then
+              echo "✅ Backend is healthy!"
+              break
+            fi
+            echo "⏳ Waiting for backend to be ready..."
+            sleep 5
+          done
 
       - name: Run API Tests
-        env:
-          API_BASE_URL: http://localhost:8080
-        run: mvn clean test
+        run: |
+          mvn clean test
 
       - name: Generate Allure Report
-        run: mvn allure:report
+        run: |
+         
+          mvn allure:report
 
       - name: Upload Allure Report
         uses: actions/upload-artifact@v4
