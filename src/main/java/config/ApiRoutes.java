@@ -2,7 +2,7 @@ package config;
 
 public class ApiRoutes {
     // Auth routes
-    public static final String BASE_PATH = "http://localhost:5059/api";
+    public static final String BASE_PATH = "http://localhost:8080/api";
     public static final String AUTH_BASE = BASE_PATH + "/auth";
     public static final String REGISTER = AUTH_BASE + "/register";
     public static final String LOGIN = AUTH_BASE + "/login";
@@ -15,7 +15,7 @@ public class ApiRoutes {
     public static final String CROWD_DEPOSIT_ENROLL = DEPOSITS_BASE + "/Crowd/enroll";
 
     // Top-up routes
-    public static final String TOP_UP_BASE = "api/TopUp";
+    public static final String TOP_UP_BASE = BASE_PATH + "/TopUp";
     public static final String CREATE_TOP_UP = TOP_UP_BASE;
     public static final String GET_TOP_UPS = TOP_UP_BASE;
 

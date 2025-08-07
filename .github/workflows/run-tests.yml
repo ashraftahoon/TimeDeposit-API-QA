@@ -1,59 +1,57 @@
-name: Backend Integration Tests with Maven
+name: Run API Tests
 
 on:
-  push:
-    branches:
-      - master
   pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
-  integration-test:
+  test:
     runs-on: ubuntu-latest
 
     services:
-      db:
-        image: ashraf354/timedeposit-db:latest
-        env:
-          POSTGRES_PASSWORD: 1234
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
       backend:
         image: ashraf354/timedeposit-backend:latest
         ports:
-          - 8080:8080
-        env:
-          ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=timedeposit;Username=postgres;Password=1234"
+          - 8080:80 # Update based on your backend exposed port
         options: >-
-          --network-alias backend
-          --health-cmd "curl --fail http://localhost:8080/health || exit 1"
+          --health-cmd "curl -f http://localhost:80/health || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+      db:
+        image: ashraf354/timedeposit-db:latest
+        ports:
+          - 5432:5432 # or whatever DB port
+        options: >-
+          --health-cmd "pg_isready -U postgres" # Or your DB health command
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
 
     steps:
-      - name: Checkout repo
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up JDK 21
+      - name: Set up JDK
         uses: actions/setup-java@v3
         with:
-          distribution: temurin
-          java-version: 21
+          distribution: 'temurin'
+          java-version: '21'  # or 11/21 based on your RestAssured setup
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
-
-      - name: Wait for services to be healthy
-        run: sleep 30
-
-      - name: Run Maven tests
+      - name: Run API Tests with Maven
         run: mvn clean test
+
+      - name: Generate Allure Report
+        run: |
+          mvn allure:report
+          mvn allure:serve &
+          sleep 15
+
+      # Optional: Upload Allure Report as artifact
+      - name: Upload Allure Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report
+          path: restassured-tests/target/site/allure-maven-plugin
