@@ -1,12 +1,37 @@
-name: Run API Tests
+name: Build and Test with Docker
 
 on:
-  pull_request:
-    branches: [ main, master ]
+  push:
+    branches: [ main ]
   workflow_dispatch:
 
+env:
+  IMAGE_NAME: ashraf354/timedeposit-backend
+
 jobs:
-  api-test:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📦 Checkout Code
+        uses: actions/checkout@v3
+
+      - name: 🔐 Docker Hub Login
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🛠️ Build Docker Image
+        run: |
+          docker build -t $IMAGE_NAME:latest .
+
+      - name: 📤 Push Image to Docker Hub
+        run: |
+          docker push $IMAGE_NAME:latest
+
+  test:
+    needs: build-and-push
     runs-on: ubuntu-latest
 
     services:
@@ -31,31 +56,24 @@ jobs:
           --health-retries 10
 
     steps:
-      - name: 📦 Checkout Code
+      - name:  Checkout Code
         uses: actions/checkout@v3
 
-      - name: ☕ Set up Java
+      - name:  Set up Java
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: 📦 Cache Maven dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ runner.os }}-maven-
-
-      - name: 🧪 Run API Tests
+      - name:  Run API Tests
         working-directory: ./restassured-tests
         run: mvn clean test
 
-      - name: 📊 Generate Allure Report
+      - name: Generate Allure Report
         working-directory: ./restassured-tests
         run: mvn allure:report
 
-      - name: ⬆️ Upload Allure Report
+      - name:  Upload Allure Report
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
