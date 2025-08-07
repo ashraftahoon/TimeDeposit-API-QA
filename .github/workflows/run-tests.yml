@@ -13,7 +13,7 @@ jobs:
       backend:
         image: ashraf354/timedeposit-backend:latest
         ports:
-          - 8080:80
+          - 8080:8080
         options: >-
           --health-cmd "curl -f http://localhost:80/health || exit 1"
           --health-interval 10s
