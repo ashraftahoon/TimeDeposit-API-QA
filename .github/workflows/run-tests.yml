@@ -2,7 +2,7 @@ name: Build and Test with Docker
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, test-actions ]
   workflow_dispatch:
 
 env:
