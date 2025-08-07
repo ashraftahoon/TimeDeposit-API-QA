@@ -2,7 +2,7 @@ name: Run API Tests with Docker Hub Login
 
 on:
   push:
-    branches: [ test-actions ]
+    branches: [ main , test-actions ]
   workflow_dispatch:
 
 jobs:
