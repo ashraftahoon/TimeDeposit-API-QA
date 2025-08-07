@@ -1,9 +1,8 @@
-name: Run API Tests with Docker Hub Login
+name: API Tests
 
 on:
   push:
-    branches: [ main , test-actions ]
-  workflow_dispatch:
+    branches: [main, test-actions]
 
 jobs:
   test:
@@ -13,51 +12,46 @@ jobs:
         image: postgres:15
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: 1234
+          POSTGRES_PASSWORD: Nada@@11
           POSTGRES_DB: timedeposit
         ports:
           - 5432:5432
         options: >-
           --health-cmd "pg_isready -U postgres -d timedeposit"
-          --health-interval 10s
+          --health-interval 5s
           --health-timeout 5s
           --health-retries 10
 
     steps:
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_ACCESSTOKEN }}
-
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
       - name: Set up Java
         uses: actions/setup-java@v3
         with:
-          distribution: temurin
           java-version: 21
+          distribution: temurin
 
-      - name: Build and start backend
+      - name: Build backend
+        run: |
+          ./mvnw clean package -DskipTests
+
+      - name: Start backend
         run: |
           docker run -d --name backend \
-            -e ConnectionStrings__DefaultConnection="Host=db;Database=timedeposit;Username=postgres;Password=12345;" \
+            -e ConnectionStrings__DefaultConnection="Host=db;Database=timedeposit;Username=postgres;Password=Nada@@11;" \
             -p 8080:8080 \
             --network host \
-            ashraf354/timedeposit-backend:latest
-          sleep 15 # Wait for backend to initialize
+            ${{ github.workspace }}/target/time-deposit-api.jar
+          sleep 15 # Wait for startup
+          curl --retry 5 --retry-delay 3 http://localhost:8080/actuator/health
 
-      - name: Run API Tests
+      - name: Run tests
         env:
           API_BASE_URL: http://localhost:8080
-        run: mvn clean test
+        run: |
+          ./mvnw test
 
-      - name: Generate Allure Report
-        run: mvn allure:report
-
-      - name: Upload Allure Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: allure-report
-          path: restassured-tests/target/site/allure-maven-plugin
+      - name: Show logs if tests fail
+        if: failure()
+        run: |
+          docker logs backend
