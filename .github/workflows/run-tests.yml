@@ -1,70 +1,63 @@
-name: Debug API Connection
+name: Run API Tests with Docker Hub Login
 
-on: [workflow_dispatch]
+on:
+  push:
+    branches: [ main , test-actions ]
+  workflow_dispatch:
 
 jobs:
-  debug:
+  test:
     runs-on: ubuntu-latest
-
     services:
       db:
         image: postgres:15
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: Nada@@11
+          POSTGRES_PASSWORD: 1234
           POSTGRES_DB: timedeposit
         ports:
           - 5432:5432
         options: >-
           --health-cmd "pg_isready -U postgres -d timedeposit"
-          --health-interval 5s
+          --health-interval 10s
           --health-timeout 5s
           --health-retries 10
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_ACCESSTOKEN }}
+
+      - name: Checkout code
+        uses: actions/checkout@v3
 
       - name: Set up Java
         uses: actions/setup-java@v3
         with:
-          java-version: 21
           distribution: temurin
+          java-version: 21
 
-      - name: Build backend
-        run: ./mvnw clean package -DskipTests
-
-      - name: Start services and debug
+      - name: Build and start backend
         run: |
-          # Start backend
           docker run -d --name backend \
-            -e ConnectionStrings__DefaultConnection="Host=db;Database=timedeposit;Username=postgres;Password=Nada@@11;" \
+            -e ConnectionStrings__DefaultConnection="Host=db;Database=timedeposit;Username=postgres;Password=12345;" \
             -p 8080:8080 \
             --network host \
-            ${{ github.workspace }}/target/time-deposit-api.jar
-          
-          # Wait and verify
-          echo "Waiting for services..."
-          sleep 20
-          
-          echo "=== NETWORK DEBUGGING ==="
-          echo "Containers:"
-          docker ps -a
-          echo ""
-          echo "Networks:"
-          docker network ls
-          echo ""
-          echo "Backend logs:"
-          docker logs backend
-          echo ""
-          echo "DB logs:"
-          docker logs db
-          echo ""
-          echo "=== CONNECTION TESTS ==="
-          echo "From host to backend:"
-          curl -v http://localhost:8080/health || echo "Failed to connect to backend"
-          echo ""
-          echo "From backend container to db:"
-          docker exec backend ping -c 3 db
-          echo ""
-          echo "DB connection test from backend:"
-          docker exec backend curl -v "http://localhost:8080/actuator/health" || echo "Health check failed"
+            ashraf354/timedeposit-backend:latest
+          sleep 15 # Wait for backend to initialize
+
+      - name: Run API Tests
+        env:
+          API_BASE_URL: http://localhost:8080
+        run: mvn clean test
+
+      - name: Generate Allure Report
+        run: mvn allure:report
+
+      - name: Upload Allure Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report
+          path: restassured-tests/target/site/allure-maven-plugin
