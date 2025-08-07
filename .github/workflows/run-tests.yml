@@ -9,14 +9,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    # First login step so pulling private images works
-    steps:
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_ACCESSTOKEN}}
-
     services:
       backend:
         image: ashraf354/timedeposit-backend:latest
@@ -39,6 +31,12 @@ jobs:
           --health-retries 10
 
     steps:
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_ACCESSTOKEN}}
+
       - name: Checkout code
         uses: actions/checkout@v3
 
@@ -58,4 +56,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
-          path: target/site/allure-maven-plugin
+          path: restassured-tests/target/site/allure-maven-plugin
