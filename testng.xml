@@ -20,9 +20,10 @@
     <!-- Deposit Tests -->
     <test name="Deposit_Tests">
         <classes>
+            <class name="tests.deposits.TopUpTests"/>
             <class name="tests.deposits.CrowdDepositTests"/>
             <class name="tests.deposits.TimeDepositTests"/>
-            <class name="tests.deposits.TopUpTests"/>
+
         </classes>
     </test>
 
