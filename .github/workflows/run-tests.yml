@@ -1,4 +1,4 @@
-name: Run API Tests with Backend Source and EF Migrations
+name: Run API Tests with Backend Source and EF Migrations (Docker Network)
 
 on:
   push:
@@ -12,23 +12,21 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    services:
-      db:
-        image: postgres:15
-        env:
-          POSTGRES_USER: modealf
-          POSTGRES_PASSWORD: pass
-          POSTGRES_DB: time_deposit_db
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d timedeposit"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
-
     steps:
-      - name: Checkout this repo (tests)
+      - name: Create Docker network
+        run: docker network create timedeposit-net || true
+
+      - name: Start Postgres container
+        run: |
+          docker run -d --rm --name db \
+            --network timedeposit-net \
+            -e POSTGRES_USER=modealf \
+            -e POSTGRES_PASSWORD=pass \
+            -e POSTGRES_DB=time_deposit_db \
+            -p 5432:5432 \
+            postgres:15
+
+      - name: Checkout tests repo
         uses: actions/checkout@v3
 
       - name: Checkout backend source code (manager's repo)
@@ -37,11 +35,10 @@ jobs:
           repository: Modealf/TimeDepositAPI
           path: backend
 
-
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: '9.0.x'   # Use your backend .NET version here
+          dotnet-version: '9.0.x'
 
       - name: Install dotnet-ef tool
         run: |
@@ -60,21 +57,21 @@ jobs:
 
       - name: Run EF Core Migrations
         working-directory: ./backend
-        run: dotnet ef database update --connection "Host=localhost;Port=5432;Database=time_deposit_db;Username=modealf;Password=pass"
+        run: dotnet ef database update --connection "Host=db;Port=5432;Database=time_deposit_db;Username=modealf;Password=pass"
 
       - name: Start Backend API (in background)
         working-directory: ./backend
-        run: dotnet run --no-build &
+        run: dotnet run --no-build --urls=http://0.0.0.0:8080 &
 
       - name: Wait for backend to be ready
         run: |
-          for i in {1..30}; do
+          for i in {1..10}; do
             if curl -s http://localhost:8080/health | grep -q "Healthy"; then
-              echo " Backend is healthy!"
+              echo "✅ Backend is healthy!"
               break
             fi
-            echo " Waiting for backend to be ready..."
-            sleep 5
+            echo "⏳ Waiting for backend to be ready..."
+            sleep 3
           done
 
       - name: Run API Tests (Maven)
