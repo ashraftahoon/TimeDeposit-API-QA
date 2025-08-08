@@ -22,8 +22,8 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd "pg_isready -U postgres -d time_deposit_db"
-          --health-interval 5s
-          --health-timeout 3s
+          --health-interval 10s
+          --health-timeout 5s
           --health-retries 10
 
     steps:
@@ -56,11 +56,33 @@ jobs:
         working-directory: ./backend
         run: dotnet restore
 
-      - name: Drop and recreate database before migrations
+      # 🆕 Remove old migrations
+      - name: Delete old EF migrations
         working-directory: ./backend
         run: |
-          dotnet ef database drop --force --connection "Host=localhost;Port=5432;Database=time_deposit_db;Username=modealf;Password=pass"
-          dotnet ef database update --connection "Host=localhost;Port=5432;Database=time_deposit_db;Username=modealf;Password=pass"
+          rm -rf Migrations
+          echo "✅ Old migrations deleted"
+
+      # 🆕 Drop database
+      - name: Drop database
+        working-directory: ./backend
+        run: dotnet ef database drop --force
+        env:
+          ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=time_deposit_db;Username=modealf;Password=pass"
+
+      # 🆕 Create fresh migration
+      - name: Create fresh EF migration
+        working-directory: ./backend
+        run: dotnet ef migrations add InitialCreate
+        env:
+          ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=time_deposit_db;Username=modealf;Password=pass"
+
+      # 🆕 Update database
+      - name: Run EF Core Migrations
+        working-directory: ./backend
+        run: dotnet ef database update
+        env:
+          ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=time_deposit_db;Username=modealf;Password=pass"
 
       - name: Start Backend API
         working-directory: ./backend
@@ -68,13 +90,13 @@ jobs:
 
       - name: Wait for backend to be healthy
         run: |
-          for i in {1..8}; do
+          for i in {1..10}; do
             if curl -s http://localhost:8080/health | grep -q "Healthy"; then
               echo "✅ Backend is healthy!"
               break
             fi
             echo "⏳ Waiting for backend to be ready..."
-            sleep 2
+            sleep 3
           done
 
       - name: Run API Tests
