@@ -2,63 +2,42 @@ name: Run API Tests with Docker Hub Login
 
 on:
   push:
-    branches: [main, test-actions]
+    branches:
+      - main
+      - test-actions
   pull_request:
   workflow_dispatch:
+
 
 jobs:
   test:
     runs-on: ubuntu-latest
 
-    services:
-      db:
-        image: postgres:15
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: 1234
-          POSTGRES_DB: timedeposit
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d timedeposit"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
-
     steps:
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_ACCESSTOKEN }}
+      - name: Create Docker network
+        run: docker network create timedeposit-net || true
 
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Set up Java
-        uses: actions/setup-java@v3
-        with:
-          distribution: temurin
-          java-version: 21
+      - name: Start Postgres container
+        run: |
+          docker run -d --rm --name test-db \
+            --network timedeposit-net \
+            -e POSTGRES_USER=postgres \
+            -e POSTGRES_PASSWORD=1234 \
+            -e POSTGRES_DB=timedeposit \
+            -p 5432:5432 \
+            postgres:15
 
       - name: Pull backend image
         run: docker pull ashraf354/timedeposit-backend:latest
-
-      - name: Create Docker network
-        run: docker network create timedeposit-net || true
 
       - name: Start backend container
         run: |
           docker run -d --rm --name backend \
             --network timedeposit-net \
             -e ASPNETCORE_ENVIRONMENT=Development \
-            -e ConnectionStrings__DefaultConnection="Host=db;Port=5432;Database=timedeposit;Username=postgres;Password=1234;" \
+            -e ConnectionStrings__DefaultConnection="Host=test-db;Port=5432;Database=timedeposit;Username=postgres;Password=1234;" \
             -p 8080:8080 \
             ashraf354/timedeposit-backend:latest
-
-      - name: Connect backend container to db service network
-        run: |
-          docker network connect timedeposit-net backend || echo "Already connected"
 
       - name: Wait for backend to be healthy
         run: |
@@ -73,12 +52,3 @@ jobs:
 
       - name: Run API Tests
         run: mvn clean test
-
-      - name: Generate Allure Report
-        run: mvn allure:report
-
-      - name: Upload Allure Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: allure-report
-          path: restassured-tests/target/site/allure-maven-plugin
