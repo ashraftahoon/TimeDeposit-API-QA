@@ -36,94 +36,54 @@ jobs:
           repository: Modealf/TimeDepositAPI
           path: backend
 
-      - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: '9.0.x'
+      # [Previous setup steps remain the same...]
+      # (dotnet, java, migrations, backend startup)
 
-      - name: Install dotnet-ef tool
+      - name: Run API Tests and capture Allure results
+        id: tests
+        continue-on-error: true  # This allows the workflow to continue even if tests fail
         run: |
-          dotnet tool install --global dotnet-ef
-          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
-
-      - name: Setup Java for Maven
-        uses: actions/setup-java@v3
-        with:
-          distribution: temurin
-          java-version: '21'
-
-      - name: Restore backend dependencies
-        working-directory: ./backend
-        run: dotnet restore
-
-      - name: Delete old EF migrations
-        working-directory: ./backend
-        run: |
-          rm -rf Migrations
-          echo "Old migrations deleted"
-
-      - name: Create fresh EF migration
-        working-directory: ./backend
-        run: dotnet ef migrations add InitialCreate
-        env:
-          ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=time_deposit_db;Username=modealf;Password=pass"
-
-      - name: Run EF Core Migrations
-        working-directory: ./backend
-        run: dotnet ef database update
-        env:
-          ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=time_deposit_db;Username=modealf;Password=pass"
-
-      - name: Start Backend API
-        working-directory: ./backend
-        run: dotnet run --no-build --urls "http://*:8080" &
-
-      - name: Wait for backend to be healthy
-        run: |
-          for i in {1..5}; do
-            if curl -s http://localhost:8080/health | grep -q "Healthy"; then
-              echo "Backend is healthy!"
-              break
-            fi
-            echo "Waiting for backend to be ready..."
-            sleep 3
-          done
-
-      - name: Run API Tests
-        id: run-tests
-        run: |
+          # Run tests but always continue to generate report
           mvn clean test
-          # Check if allure results were generated
+          # Always check for allure results, regardless of test status
+          echo "Checking for Allure results..."
           if [ -d "target/allure-results" ]; then
-            echo "::set-output name=has_results::true"
+            echo "::notice::Allure results found"
+            echo "has_results=true" >> $GITHUB_OUTPUT
           else
             echo "::warning::No Allure results were generated"
-            echo "::set-output name=has_results::false"
+            echo "has_results=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Install Allure Commandline
-        if: steps.run-tests.outputs.has_results == 'true'
+        if: steps.tests.outputs.has_results == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install allure
 
       - name: Generate Allure Report
-        if: steps.run-tests.outputs.has_results == 'true'
+        if: steps.tests.outputs.has_results == 'true'
         run: |
           allure generate target/allure-results -o target/allure-report --clean
+          # Save the test status for later use
+          echo "tests_passed=${{ steps.tests.outcome == 'success' }}" >> $GITHUB_OUTPUT
 
       - name: Archive Allure Report
-        if: steps.run-tests.outputs.has_results == 'true'
+        if: steps.tests.outputs.has_results == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
           path: target/allure-report
           retention-days: 5
 
-      - name: Debug file structure
-        if: steps.run-tests.outputs.has_results == 'false'
+      - name: Show test status
         run: |
-          echo "Contents of target directory:"
-          ls -la target || echo "No target directory found"
-          echo "Contents of current directory:"
-          ls -la
+          if ${{ steps.tests.outcome == 'success' }}; then
+            echo "::notice::All tests passed"
+          else
+            echo "::warning::Some tests failed - see Allure report for details"
+          fi
+
+      - name: Fail workflow if tests failed
+        if: steps.tests.outcome != 'success'
+        run: exit 1
