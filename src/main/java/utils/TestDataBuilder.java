@@ -9,50 +9,55 @@ import models.topup.TopUpRequest;
 
 public class TestDataBuilder {
 
-    // Generate unique email for each test run
-    public static String generateUniqueEmail() {
-        return "testuser_" + System.currentTimeMillis() + "@stc.com";
-    }
+        // Store last created emails for reuse in login
+        private static String lastAdminEmail;
+        private static String lastUserEmail;
+
+        public static String generateUniqueEmail() {
+            return "testuser_" + System.currentTimeMillis() + "@stc.com";
+        }
+
+        // Admin registration request
+        public static RegisterRequest buildAdminRegisterRequest() {
+            lastAdminEmail = generateUniqueEmail(); // store for login later
+            return new RegisterRequest(
+                    lastAdminEmail,
+                    "Password123!",
+                    "ashraf",
+                    "tahoon",
+                    0 // admin role
+            );
+        }
+
+        // Regular user registration request
+        public static RegisterRequest buildUserRegisterRequest() {
+            lastUserEmail = generateUniqueEmail();
+            return new RegisterRequest(
+                    lastUserEmail,
+                    "UserPass123!",
+                    "Regular",
+                    "User",
+                    1 // regular user role
+            );
+        }
+
+        // Admin login request - uses the stored email from registration
+        public static LoginRequest buildAdminLoginRequest() {
+            if (lastAdminEmail == null) {
+                throw new IllegalStateException("Admin email not set. Run registration first.");
+            }
+            return new LoginRequest(lastAdminEmail, "Password123!");
+        }
+
+        // Regular user login request
+        public static LoginRequest buildUserLoginRequest() {
+            if (lastUserEmail == null) {
+                throw new IllegalStateException("User email not set. Run registration first.");
+            }
+            return new LoginRequest(lastUserEmail, "UserPass123!");
+        }
 
 
-//    // This method builds a valid register  request for admin with dynamic email generation
-    public static RegisterRequest buildAdminRegisterRequest() {
-        return new RegisterRequest(
-                generateUniqueEmail(),  // Use dynamic email
-                "Password123!",
-                "ashraf",
-                "tahoon",
-                0
-        );
-    }
-
-    // Regular user registration (role 1)
-    public static RegisterRequest buildUserRegisterRequest() {
-        return new RegisterRequest(
-                generateUniqueEmail(),
-                "UserPass123!",
-                "Regular",
-                "User",
-                1  // Regular user role
-        );
-    }
-
-
-    //    // This method builds a valid login request for user  with a known email and password
-    public static LoginRequest buildUserLoginRequest() {
-        return new LoginRequest(
-                "user2@gm.com",
-                "password"
-        );
-    }
-
-    //    // This method builds a valid login request for user  with a known email and password
-    public static LoginRequest buildAdminLoginRequest() {
-        return new LoginRequest(
-                "admin@gm.com",
-                "password"
-        );
-    }
 
     // This method builds a valid update profile request with new details
     public static UpdateProfileRequest buildUpdateProfileRequest() {

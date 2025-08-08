@@ -2,7 +2,7 @@ package config;
 
 public class ApiRoutes {
     // Auth routes
-    public static final String BASE_PATH = "http://localhost:8081/api";
+    public static final String BASE_PATH = "http://localhost:8080/api";
     public static final String AUTH_BASE = BASE_PATH + "/auth";
     public static final String REGISTER = AUTH_BASE + "/register";
     public static final String LOGIN = AUTH_BASE + "/login";

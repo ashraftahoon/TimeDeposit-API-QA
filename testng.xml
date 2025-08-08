@@ -3,9 +3,9 @@
     <!-- Authentication Tests -->
     <test name="Authentication_Tests">
         <classes>
+            <class name="tests.auth.RegistrationTests"/>
             <class name="tests.auth.LoginTests"/>
             <class name="tests.auth.ProfileUpdateTests"/>
-            <class name="tests.auth.RegistrationTests"/>
         </classes>
     </test>
 
