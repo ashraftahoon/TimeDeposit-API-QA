@@ -1,3 +1,16 @@
+
+
+name: Run API Tests with Docker Hub Login
+
+on:
+  push:
+    branches:
+      - main
+      - test-actions
+  pull_request:
+  workflow_dispatch:
+
+
 jobs:
   test:
     runs-on: ubuntu-latest
