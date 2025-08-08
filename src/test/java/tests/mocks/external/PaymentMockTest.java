@@ -21,7 +21,8 @@ public class PaymentMockTest {
 
     @BeforeClass
     public static void globalSetup() {
-        useMock = ConfigReader.getBoolean("useMock");
+       // useMock = ConfigReader.getBoolean("useMock");
+         useMock = Boolean.parseBoolean(System.getProperty("useMock", "true"));
         if (useMock) {
             startWireMockServer();
             setupMockEndpoints();
