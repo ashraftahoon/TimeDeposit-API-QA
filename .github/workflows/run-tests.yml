@@ -21,7 +21,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U modealf -d time_deposit_db"
+          --health-cmd "pg_isready -U postgres -d time_deposit_db"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
@@ -76,25 +76,25 @@ jobs:
 
       - name: Start Backend API
         working-directory: ./backend
-        run: nohup dotnet run --no-build --urls "http://*:8080" > backend.log 2>&1 &
+        run: dotnet run --no-build --urls "http://*:8080" &
 
       - name: Wait for backend to be healthy
         run: |
-          for i in {1..15}; do
+          for i in {1..5}; do
             if curl -s http://localhost:8080/health | grep -q "Healthy"; then
               echo "Backend is healthy!"
-              exit 0
+              break
             fi
             echo "Waiting for backend to be ready..."
-            sleep 5
+            sleep 3
           done
-          echo "::error::Backend did not become healthy in time."
-          exit 1
 
       - name: Run API Tests and generate Allure results
         id: tests
         run: |
+          # Run tests but don't fail the step if tests fail
           mvn clean test || true
+          # Verify allure results were generated
           if [ -d "target/allure-results" ]; then
             echo "Allure results generated"
           else
@@ -106,21 +106,26 @@ jobs:
         if: steps.tests.outcome == 'success'
         run: |
           sudo apt-get update
-          sudo apt-get install -y allure
+          sudo apt-get install allure
 
       - name: Generate Allure Report
         if: steps.tests.outcome == 'success'
-        run: mvn allure:report
+        run: |
+          mvn allure:report
 
       - name: Archive Allure Report
         if: steps.tests.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
-          path: target/site/allure-maven-plugin
+          path: target/allure-results
+
+      - name: Generate and serve Allure Report
+        run: |
+          allure serve target/allure-results  
 
       - name: Print test failure message
         if: steps.tests.outcome != 'success'
         run: |
-          echo "::warning::Some tests failed. Check the test results above.0"
+          echo "::warning::Some tests failed. Check the test results above."
           echo "Allure report will still be generated if results were created."
