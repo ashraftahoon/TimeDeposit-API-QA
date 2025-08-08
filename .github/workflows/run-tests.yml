@@ -50,7 +50,7 @@ jobs:
         run: |
           dotnet tool install --global dotnet-ef
           export PATH="$PATH:$HOME/.dotnet/tools"
-          dotnet ef database update --connection "Host=test-db;Port=5432;Database=timedeposit;Username=postgres;Password=1234"
+          dotnet ef database update --project ./TimeDepositAPI.csproj --connection "Host=test-db;Port=5432;Database=timedeposit;Username=postgres;Password=1234"
 
       - name: Wait for backend to be healthy
         run: |
