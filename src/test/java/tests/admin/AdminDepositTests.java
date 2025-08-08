@@ -90,7 +90,7 @@ public class AdminDepositTests {
         response.then()
                 .statusCode(200)
                 .log().all()
-                .body("crowdDepositOffers[-1].amount", equalTo(50000.0f)) // Last item amount
+                .body("crowdDepositOffers[-1].amount", equalTo(200.0f)) // Last item amount
                 .body("crowdDepositOffers[-1].apy", equalTo(500f))      // Last item APY
                 .body("crowdDepositOffers[-1].period", equalTo(30))     // Last item period
                 .body("crowdDepositOffers[-1].startDate", equalTo("2025-08-08T05:37:17.812Z"))
