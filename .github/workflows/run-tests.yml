@@ -41,9 +41,17 @@ jobs:
             -p 8080:8080 \
             ashraf354/timedeposit-backend:latest
 
-      - name: Run EF Core migrations
+      - name: Setup .NET SDK for EF Migrations
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Run EF Core Migrations
+        working-directory: ./TimeDepositAPI.csproj  # <-- set path to your backend .csproj folder
         run: |
-          docker exec backend dotnet ef database update
+          dotnet tool install --global dotnet-ef
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          dotnet ef database update --connection "Host=test-db;Port=5432;Database=timedeposit;Username=postgres;Password=1234"
 
       - name: Wait for backend to be healthy
         run: |
