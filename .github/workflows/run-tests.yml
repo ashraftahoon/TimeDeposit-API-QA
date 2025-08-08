@@ -47,7 +47,6 @@ jobs:
           dotnet-version: 9.0.x
 
       - name: Run EF Core Migrations
-        working-directory: ./TimeDepositAPI.csproj  # <-- set path to your backend .csproj folder
         run: |
           dotnet tool install --global dotnet-ef
           export PATH="$PATH:$HOME/.dotnet/tools"
