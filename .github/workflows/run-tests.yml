@@ -42,7 +42,7 @@ jobs:
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: '7.0.x'   # Use your backend .NET version here
+          dotnet-version: '9.0.x'   # Use your backend .NET version here
 
       - name: Setup Java (for Maven tests)
         uses: actions/setup-java@v3
@@ -65,7 +65,7 @@ jobs:
       - name: Wait for backend to be ready
         run: |
           for i in {1..30}; do
-            if curl -s http://localhost:5000/health | grep -q "Healthy"; then
+            if curl -s http://localhost:8080/health | grep -q "Healthy"; then
               echo "✅ Backend is healthy!"
               break
             fi
