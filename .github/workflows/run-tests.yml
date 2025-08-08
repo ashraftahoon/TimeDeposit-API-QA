@@ -1,4 +1,4 @@
-name: Run API Tests with Docker
+name: Run API Tests with Backend Source and EF Migrations
 
 on:
   push:
@@ -12,67 +12,77 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    services:
+      db:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: 1234
+          POSTGRES_DB: timedeposit
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d timedeposit"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
-      - name: Checkout repository
+      - name: Checkout this repo (tests)
         uses: actions/checkout@v3
 
-      - name: Setup Java for tests
+      - name: Checkout backend source code (manager's repo)
+        uses: actions/checkout@v3
+        with:
+          repository: Modealf/TimeDepositAPI
+          path: backend
+          # optional: you can specify ref (branch or commit)
+          # ref: main
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '7.0.x'   # Use your backend .NET version here
+
+      - name: Setup Java (for Maven tests)
         uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 21
 
-      - name: Setup .NET for EF Core
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: 9.0.x
+      - name: Restore backend dependencies
+        working-directory: ./backend
+        run: dotnet restore
 
-      - name: Create Docker network
-        run: docker network create timedeposit-net
+      - name: Run EF Core Migrations
+        working-directory: ./backend
+        run: dotnet ef database update --connection "Host=localhost;Port=5432;Database=timedeposit;Username=postgres;Password=1234"
 
-      - name: Start Postgres container
+      - name: Start Backend API (in background)
+        working-directory: ./backend
+        run: dotnet run --no-build &
+
+      - name: Wait for backend to be ready
         run: |
-          docker run -d --name test-db \
-            --network timedeposit-net \
-            -e POSTGRES_USER=postgres \
-            -e POSTGRES_PASSWORD=1234 \
-            -e POSTGRES_DB=timedeposit \
-            -p 5432:5432 \
-            postgres:15
-          sleep 10 # Wait for DB to initialize
+          for i in {1..30}; do
+            if curl -s http://localhost:5000/health | grep -q "Healthy"; then
+              echo "✅ Backend is healthy!"
+              break
+            fi
+            echo "⏳ Waiting for backend to be ready..."
+            sleep 5
+          done
 
-
-
-      - name: Apply EF Core Migrations
-        run: |
-          dotnet tool install --global dotnet-ef
-          export PATH="$PATH:$HOME/.dotnet/tools"
-          dotnet ef database update \
-            --project TimeDepositAPI.csproj \
-            --connection "Host=test-db;Port=5432;Database=timedeposit;Username=postgres;Password=1234"
-
-      - name: Start backend container
-        run: |
-          docker build -t timedeposit-backend .
-          docker run -d --name backend \
-            --network timedeposit-net \
-            -e ASPNETCORE_ENVIRONMENT=Development \
-            -e ConnectionStrings__DefaultConnection="Host=test-db;Port=5432;Database=timedeposit;Username=postgres;Password=1234;" \
-            -p 8080:8080 \
-            timedeposit-backend
-          sleep 15 # Wait for backend to start
-
-      - name: Verify backend health
-        run: |
-          curl --retry 5 --retry-delay 5 --retry-all-errors http://localhost:8080/health
-
-      - name: Run API Tests
-        env:
-          API_BASE_URL: http://localhost:8080
+      - name: Run API Tests (Maven)
+        working-directory: .
         run: mvn clean test
 
-      - name: Cleanup containers
-        if: always()
-        run: |
-          docker stop backend test-db || true
-          docker network rm timedeposit-net || true
+      - name: Generate Allure Report
+        working-directory: .
+        run: mvn allure:report
+
+      - name: Upload Allure Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report
+          path: target/site/allure-maven-plugin
