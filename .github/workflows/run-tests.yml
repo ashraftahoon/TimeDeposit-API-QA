@@ -122,5 +122,5 @@ jobs:
       - name: Print test failure message
         if: steps.tests.outcome != 'success'
         run: |
-          echo "::warning::Some tests failed. Check the test results above."
+          echo "::warning::Some tests failed. Check the test results above.0"
           echo "Allure report will still be generated if results were created."
