@@ -1,10 +1,8 @@
-name: Run API Tests with Backend Source and EF Migrations (Docker Network)
+name: Run API Tests with Network Isolation
 
 on:
   push:
-    branches:
-      - main
-      - test-actions
+    branches: [main, test-actions]
   pull_request:
   workflow_dispatch:
 
@@ -13,27 +11,28 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Create Docker network
-        run: docker network create timedeposit-net || true
+      - name: Checkout tests repo
+        uses: actions/checkout@v3
 
-      - name: Start Postgres container
+      - name: Checkout backend source
+        uses: actions/checkout@v3
+        with:
+          repository: Modealf/TimeDepositAPI
+          path: backend
+
+      - name: Create Docker network
+        run: docker network create test-network
+
+      - name: Start PostgreSQL container
         run: |
-          docker run -d --rm --name db \
-            --network timedeposit-net \
+          docker run -d --name test-db \
+            --network test-network \
             -e POSTGRES_USER=modealf \
             -e POSTGRES_PASSWORD=pass \
             -e POSTGRES_DB=time_deposit_db \
             -p 5432:5432 \
             postgres:15
-
-      - name: Checkout tests repo
-        uses: actions/checkout@v3
-
-      - name: Checkout backend source code (manager's repo)
-        uses: actions/checkout@v3
-        with:
-          repository: Modealf/TimeDepositAPI
-          path: backend
+          sleep 10 # Wait for DB initialization
 
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v3
@@ -45,45 +44,47 @@ jobs:
           dotnet tool install --global dotnet-ef
           echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
 
-      - name: Setup Java (for Maven tests)
+      - name: Run EF Core Migrations
+        working-directory: ./backend
+        run: |
+          dotnet ef database update \
+            --connection "Host=test-db;Database=time_deposit_db;Username=modealf;Password=pass"
+
+      - name: Build Backend Docker image
+        working-directory: ./backend
+        run: docker build -t time-deposit-api .
+
+      - name: Start Backend container
+        run: |
+          docker run -d --name backend \
+            --network test-network \
+            -p 8080:8080 \
+            -e ASPNETCORE_ENVIRONMENT=Development \
+            -e ConnectionStrings__DefaultConnection="Host=test-db;Database=time_deposit_db;Username=modealf;Password=pass" \
+            time-deposit-api
+          sleep 15 # Wait for backend initialization
+
+      - name: Verify services
+        run: |
+          # Check DB connection from backend
+          docker exec backend curl -s http://localhost:8080/health
+          
+          # Check direct access
+          curl --retry 5 --retry-delay 3 http://localhost:8080/health
+
+      - name: Setup Java
         uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 21
 
-      - name: Restore backend dependencies
-        working-directory: ./backend
-        run: dotnet restore
-
-      - name: Run EF Core Migrations
-        working-directory: ./backend
-        run: dotnet ef database update --connection "Host=db;Port=5432;Database=time_deposit_db;Username=modealf;Password=pass"
-
-      - name: Start Backend API (in background)
-        working-directory: ./backend
-        run: dotnet run --no-build --urls=http://0.0.0.0:8080 &
-
-      - name: Wait for backend to be ready
-        run: |
-          for i in {1..10}; do
-            if curl -s http://localhost:8080/health | grep -q "Healthy"; then
-              echo "✅ Backend is healthy!"
-              break
-            fi
-            echo "⏳ Waiting for backend to be ready..."
-            sleep 3
-          done
-
-      - name: Run API Tests (Maven)
-        working-directory: .
+      - name: Run API Tests
+        env:
+          API_BASE_URL: http://localhost:8080
         run: mvn clean test
 
-      - name: Generate Allure Report
-        working-directory: .
-        run: mvn allure:report
-
-      - name: Upload Allure Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: allure-report
-          path: target/site/allure-maven-plugin
+      - name: Cleanup
+        if: always()
+        run: |
+          docker stop backend test-db || true
+          docker network rm test-network || true
