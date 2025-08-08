@@ -1,8 +1,9 @@
-name: API Tests with Java Version Fix
+name: Run API Tests with Backend Source and EF Migrations
 
 on:
   push:
-    branches: [main, test-actions]
+    branches:
+      - main
   pull_request:
   workflow_dispatch:
 
@@ -14,55 +15,76 @@ jobs:
       postgres:
         image: postgres:15
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: 1234
-          POSTGRES_DB: timedeposit
+          POSTGRES_USER: modealf
+          POSTGRES_PASSWORD: pass
+          POSTGRES_DB: time_deposit_db
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d timedeposit"
-          --health-interval 10s
-          --health-timeout 5s
+          --health-cmd "pg_isready -U postgres -d time_deposit_db"
+          --health-interval 5s
+          --health-timeout 3s
           --health-retries 10
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Setup Java
+      - name: Checkout backend source code
+        uses: actions/checkout@v3
+        with:
+          repository: Modealf/TimeDepositAPI
+          path: backend
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Install dotnet-ef tool
+        run: |
+          dotnet tool install --global dotnet-ef
+          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+
+      - name: Setup Java for Maven
         uses: actions/setup-java@v3
         with:
-          distribution: 'temurin'
-          java-version: '17'  # Changed to LTS version that matches your pom.xml
-          cache: 'maven'
+          distribution: temurin
+          java-version: 21
 
-      - name: Install PostgreSQL client
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Restore backend dependencies
+        working-directory: ./backend
+        run: dotnet restore
 
-      - name: Wait for PostgreSQL
+      - name: Drop and recreate database before migrations
+        working-directory: ./backend
         run: |
-          for i in {1..30}; do
-            if pg_isready -h localhost -p 5432 -U postgres -d timedeposit; then
-              echo "Database is ready!"
+          dotnet ef database drop --force --connection "Host=localhost;Port=5432;Database=time_deposit_db;Username=modealf;Password=pass"
+          dotnet ef database update --connection "Host=localhost;Port=5432;Database=time_deposit_db;Username=modealf;Password=pass"
+
+      - name: Start Backend API
+        working-directory: ./backend
+        run: dotnet run --no-build --urls "http://*:8080" &
+
+      - name: Wait for backend to be healthy
+        run: |
+          for i in {1..8}; do
+            if curl -s http://localhost:8080/health | grep -q "Healthy"; then
+              echo "✅ Backend is healthy!"
               break
             fi
-            echo "Waiting for database..."
+            echo "⏳ Waiting for backend to be ready..."
             sleep 2
           done
 
-      - name: Build and test with Maven
-        run: |
-          mvn clean install -DskipTests
-          mvn test \
-            -Ddb.url=jdbc:postgresql://localhost:5432/timedeposit \
-            -Ddb.user=postgres \
-            -Ddb.password=1234
+      - name: Run API Tests
+        run: mvn clean test
 
-      - name: Upload test results
-        if: always()
+      - name: Generate Allure Report
+        run: mvn allure:report
+
+      - name: Upload Allure Report
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
-          path: |
-            target/surefire-reports/*
-            target/failsafe-reports/*
+          name: allure-report
+          path: target/allure-maven-plugin
