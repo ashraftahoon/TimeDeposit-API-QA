@@ -80,7 +80,7 @@ jobs:
 
       - name: Wait for backend to be healthy
         run: |
-          for i in {1..5}; do
+          for i in {1..3}; do
             if curl -s http://localhost:8080/health | grep -q "Healthy"; then
               echo "Backend is healthy!"
               break
@@ -118,8 +118,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
-          path: allure-report
-          
+          path: target/allure-report
+
       - name: Allure Report
         uses: simple-elf/allure-report-action@v1.7
         if: always()
