@@ -19,6 +19,7 @@ jobs:
         with:
           repository: Modealf/TimeDepositAPI
           path: backend
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Docker network
         run: docker network create test-network
@@ -39,16 +40,21 @@ jobs:
         with:
           dotnet-version: '9.0.x'
 
-      - name: Install dotnet-ef tool
-        run: |
-          dotnet tool install --global dotnet-ef
-          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+      - name: Build backend application
+        working-directory: ./backend
+        run: dotnet build
 
       - name: Run EF Core Migrations
         working-directory: ./backend
         run: |
-          dotnet ef database update \
-            --connection "Host=test-db;Database=time_deposit_db;Username=modealf;Password=pass"
+          docker run --rm --network test-network \
+            -v $(pwd):/app \
+            -w /app \
+            mcr.microsoft.com/dotnet/sdk:9.0 \
+            bash -c "dotnet tool install --global dotnet-ef && \
+                     export PATH=\"\$PATH:/root/.dotnet/tools\" && \
+                     dotnet ef database update \
+                       --connection \"Host=test-db;Database=time_deposit_db;Username=modealf;Password=pass\""
 
       - name: Build Backend Docker image
         working-directory: ./backend
@@ -66,10 +72,10 @@ jobs:
 
       - name: Verify services
         run: |
-          # Check DB connection from backend
+          echo "Checking database connection from backend..."
           docker exec backend curl -s http://localhost:8080/health
           
-          # Check direct access
+          echo "Checking direct API access..."
           curl --retry 5 --retry-delay 3 http://localhost:8080/health
 
       - name: Setup Java
@@ -82,6 +88,17 @@ jobs:
         env:
           API_BASE_URL: http://localhost:8080
         run: mvn clean test
+
+      - name: Generate Allure Report
+        if: always()
+        run: mvn allure:report
+
+      - name: Upload Allure Report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: allure-report
+          path: target/site/allure-maven-plugin
 
       - name: Cleanup
         if: always()
