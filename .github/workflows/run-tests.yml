@@ -89,39 +89,41 @@ jobs:
             sleep 3
           done
 
-      - name: Run API Tests and generate Allure results
-        id: tests
+      - name: Run API Tests
+        id: run-tests
         run: |
-          # Run tests but don't fail the step if tests fail
-          mvn clean test || true
-          # Verify allure results were generated
+          mvn clean test
+          # Check if allure results were generated
           if [ -d "target/allure-results" ]; then
-            echo "Allure results generated"
+            echo "::set-output name=has_results::true"
           else
-            echo "::error::No Allure results were generated"
-            exit 1
+            echo "::warning::No Allure results were generated"
+            echo "::set-output name=has_results::false"
           fi
 
       - name: Install Allure Commandline
-        if: steps.tests.outcome == 'success'
+        if: steps.run-tests.outputs.has_results == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install allure
 
       - name: Generate Allure Report
-        if: steps.tests.outcome == 'success'
+        if: steps.run-tests.outputs.has_results == 'true'
         run: |
-          mvn allure:report
+          allure generate target/allure-results -o target/allure-report --clean
 
       - name: Archive Allure Report
-        if: steps.tests.outcome == 'success'
+        if: steps.run-tests.outputs.has_results == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
-          path: target/site/allure-maven-plugin
+          path: target/allure-report
+          retention-days: 5
 
-      - name: Print test failure message
-        if: steps.tests.outcome != 'success'
+      - name: Debug file structure
+        if: steps.run-tests.outputs.has_results == 'false'
         run: |
-          echo "::warning::Some tests failed. Check the test results above."
-          echo "Allure report will still be generated if results were created."
+          echo "Contents of target directory:"
+          ls -la target || echo "No target directory found"
+          echo "Contents of current directory:"
+          ls -la

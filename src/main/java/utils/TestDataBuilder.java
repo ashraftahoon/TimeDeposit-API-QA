@@ -7,17 +7,21 @@ import models.deposits.CrowdDepositEnrollRequest;
 import models.deposits.TimeDepositRequest;
 import models.topup.TopUpRequest;
 
+import java.util.UUID;
+
 public class TestDataBuilder {
 
         // Store last created emails for reuse in login
         private static String lastAdminEmail;
         private static String lastUserEmail;
 
+
         public static String generateUniqueEmail() {
-            return "testuser_" + System.currentTimeMillis() + "@stc.com";
+            return "testuser_" + UUID.randomUUID().toString() + "@stc.com";
         }
 
-        // Admin registration request
+
+    // Admin registration request
         public static RegisterRequest buildAdminRegisterRequest() {
             lastAdminEmail = generateUniqueEmail(); // store for login later
             return new RegisterRequest(
