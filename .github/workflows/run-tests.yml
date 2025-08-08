@@ -1,8 +1,10 @@
-name: Run API Tests with Network Isolation
+name: Run API Tests with Backend Source and EF Migrations
 
 on:
   push:
-    branches: [main, test-actions]
+    branches:
+      - main
+      - test-actions
   pull_request:
   workflow_dispatch:
 
@@ -10,98 +12,78 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: 1234
+          POSTGRES_DB: timedeposit
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d timedeposit"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
-      - name: Checkout tests repo
+      - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Checkout backend source
+      - name: Checkout backend source code
         uses: actions/checkout@v3
         with:
           repository: Modealf/TimeDepositAPI
           path: backend
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create Docker network
-        run: docker network create test-network
-
-      - name: Start PostgreSQL container
-        run: |
-          docker run -d --name test-db \
-            --network test-network \
-            -e POSTGRES_USER=modealf \
-            -e POSTGRES_PASSWORD=pass \
-            -e POSTGRES_DB=time_deposit_db \
-            -p 5432:5432 \
-            postgres:15
-          sleep 10 # Wait for DB initialization
 
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: '9.0.x'
 
-      - name: Build backend application
-        working-directory: ./backend
-        run: dotnet build
-
-      - name: Run EF Core Migrations
-        working-directory: ./backend
+      - name: Install dotnet-ef tool
         run: |
-          docker run --rm --network test-network \
-            -v $(pwd):/app \
-            -w /app \
-            mcr.microsoft.com/dotnet/sdk:9.0 \
-            bash -c "dotnet tool install --global dotnet-ef && \
-                     export PATH=\"\$PATH:/root/.dotnet/tools\" && \
-                     dotnet ef database update \
-                       --connection \"Host=test-db;Database=time_deposit_db;Username=modealf;Password=pass\""
+          dotnet tool install --global dotnet-ef
+          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
 
-      - name: Build Backend Docker image
-        working-directory: ./backend
-        run: docker build -t time-deposit-api .
-
-      - name: Start Backend container
-        run: |
-          docker run -d --name backend \
-            --network test-network \
-            -p 8080:8080 \
-            -e ASPNETCORE_ENVIRONMENT=Development \
-            -e ConnectionStrings__DefaultConnection="Host=test-db;Database=time_deposit_db;Username=modealf;Password=pass" \
-            time-deposit-api
-          sleep 15 # Wait for backend initialization
-
-      - name: Verify services
-        run: |
-          echo "Checking database connection from backend..."
-          docker exec backend curl -s http://localhost:8080/health
-          
-          echo "Checking direct API access..."
-          curl --retry 5 --retry-delay 3 http://localhost:8080/health
-
-      - name: Setup Java
+      - name: Setup Java for Maven
         uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 21
 
+      - name: Restore backend dependencies
+        working-directory: ./backend
+        run: dotnet restore
+
+      - name: Run EF Core Migrations
+        working-directory: ./backend
+        run: dotnet ef database update --connection "Host=localhost;Port=5432;Database=timedeposit;Username=postgres;Password=1234"
+
+      - name: Start Backend API
+        working-directory: ./backend
+        run: dotnet run --no-build --urls "http://*:8080" &
+
+      - name: Wait for backend to be healthy
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:8080/health | grep -q "Healthy"; then
+              echo "✅ Backend is healthy!"
+              break
+            fi
+            echo "⏳ Waiting for backend to be ready..."
+            sleep 5
+          done
+
       - name: Run API Tests
-        env:
-          API_BASE_URL: http://localhost:8080
         run: mvn clean test
 
       - name: Generate Allure Report
-        if: always()
         run: mvn allure:report
 
       - name: Upload Allure Report
-        if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: allure-report
-          path: target/site/allure-maven-plugin
-
-      - name: Cleanup
-        if: always()
-        run: |
-          docker stop backend test-db || true
-          docker network rm test-network || true
+          path: target/allure-maven-plugin
