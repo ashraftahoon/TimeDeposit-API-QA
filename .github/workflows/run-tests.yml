@@ -44,6 +44,11 @@ jobs:
         with:
           dotnet-version: '9.0.x'   # Use your backend .NET version here
 
+      - name: Install dotnet-ef tool
+        run: |
+          dotnet tool install --global dotnet-ef
+          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+
       - name: Setup Java (for Maven tests)
         uses: actions/setup-java@v3
         with:
