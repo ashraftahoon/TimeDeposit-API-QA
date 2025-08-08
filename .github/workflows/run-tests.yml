@@ -9,6 +9,13 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    # Container setup with PostgreSQL
+    container:
+      image: ubuntu:22.04
+      volumes:
+        - postgres_data:/var/lib/postgresql/data
+
     services:
       postgres:
         image: postgres:15
@@ -23,19 +30,16 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
-        # Add these for better DB initialization
-        volumes:
-          - postgres_data:/var/lib/postgresql/data
+          --mount type=volume,source=postgres_data,target=/var/lib/postgresql/data
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Setup Java
-        uses: actions/setup-java@v3
-        with:
-          distribution: temurin
-          java-version: '21'
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y postgresql-client maven
 
       - name: Wait for PostgreSQL
         run: |
@@ -50,7 +54,6 @@ jobs:
 
       - name: Run Tests with DB Retry
         run: |
-          # Retry logic for flaky DB operations
           for attempt in {1..3}; do
             mvn clean test \
               -Ddb.url=jdbc:postgresql://localhost:5432/timedeposit \
@@ -70,7 +73,3 @@ jobs:
           path: |
             target/surefire-reports/*
             target/failsafe-reports/*
-
-# Add volume definition
-volumes:
-  postgres_data:
