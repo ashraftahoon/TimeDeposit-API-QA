@@ -12,7 +12,7 @@ public class CrowdDepositTests  {
     // Test to enroll in a crowd deposit with a valid offer ID
     @Test
     void userCanEnrollInCrowdDeposit() {
-        CrowdDepositEnrollRequest request = TestDataBuilder.buildValidEnrollRequest(20);
+        CrowdDepositEnrollRequest request = TestDataBuilder.buildValidEnrollRequest(2);
         Response response = CrowdDepositEndpoint.enrollInOffer(request);
 
         response.then()
@@ -25,7 +25,7 @@ public class CrowdDepositTests  {
     @Test
     void enrollWithInvalidAmount_ShouldFail() {
         CrowdDepositEnrollRequest request =
-                TestDataBuilder.buildInvalidEnrollRequest(21);
+                TestDataBuilder.buildInvalidEnrollRequest(2);
 
         CrowdDepositEndpoint.enrollInOffer(request)
                 .then()
@@ -36,7 +36,7 @@ public class CrowdDepositTests  {
     // Test to enroll in a crowd deposit with an amount less than the balance
     @Test
     void enrollWithInsufficientBalance_ShouldFail() {
-        CrowdDepositEnrollRequest request = TestDataBuilder.buildInvalidEnrollRequest(22);
+        CrowdDepositEnrollRequest request = TestDataBuilder.buildInvalidEnrollRequest(3);
         request.setAmount(1000000); // Set amount greater than available balance
         CrowdDepositEndpoint.enrollInOffer(request)
                 .then()
