@@ -1,4 +1,4 @@
-name: API Tests with Database Fix
+name: API Tests with Java Version Fix
 
 on:
   push:
@@ -9,12 +9,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-
-    # Container setup with PostgreSQL
-    container:
-      image: ubuntu:22.04
-      volumes:
-        - postgres_data:/var/lib/postgresql/data
 
     services:
       postgres:
@@ -30,16 +24,20 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
-          --mount type=volume,source=postgres_data,target=/var/lib/postgresql/data
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Install dependencies
-        run: |
-          apt-get update
-          apt-get install -y postgresql-client maven
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'  # Changed to LTS version that matches your pom.xml
+          cache: 'maven'
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
       - name: Wait for PostgreSQL
         run: |
@@ -52,24 +50,19 @@ jobs:
             sleep 2
           done
 
-      - name: Run Tests with DB Retry
+      - name: Build and test with Maven
         run: |
-          for attempt in {1..3}; do
-            mvn clean test \
-              -Ddb.url=jdbc:postgresql://localhost:5432/timedeposit \
-              -Ddb.user=postgres \
-              -Ddb.password=1234 \
-              && exit 0
-            echo "Attempt $attempt failed, retrying..."
-            sleep 5
-          done
-          exit 1
+          mvn clean install -DskipTests
+          mvn test \
+            -Ddb.url=jdbc:postgresql://localhost:5432/timedeposit \
+            -Ddb.user=postgres \
+            -Ddb.password=1234
 
-      - name: Upload logs on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v3
         with:
-          name: test-logs
+          name: test-results
           path: |
             target/surefire-reports/*
             target/failsafe-reports/*
