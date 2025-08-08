@@ -36,8 +36,7 @@ jobs:
         with:
           repository: Modealf/TimeDepositAPI
           path: backend
-          # optional: you can specify ref (branch or commit)
-          # ref: main
+
 
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v3
@@ -61,7 +60,7 @@ jobs:
 
       - name: Run EF Core Migrations
         working-directory: ./backend
-        run: dotnet ef database update --connection "Host=localhost;Port=5432;Database=timedeposit;Username=postgres;Password=1234"
+        run: dotnet ef database update --connection "Host=localhost;Port=5432;Database=time_deposit_db;Username=modealf;Password=pass"
 
       - name: Start Backend API (in background)
         working-directory: ./backend
@@ -71,10 +70,10 @@ jobs:
         run: |
           for i in {1..30}; do
             if curl -s http://localhost:8080/health | grep -q "Healthy"; then
-              echo "✅ Backend is healthy!"
+              echo " Backend is healthy!"
               break
             fi
-            echo "⏳ Waiting for backend to be ready..."
+            echo " Waiting for backend to be ready..."
             sleep 5
           done
 
