@@ -118,11 +118,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
-          path: build/allure-report
+          path: target/allure-results
 
       - name: Generate and serve Allure Report
         run: |
-          mvn serve target/allure-results  
+          allure open target/allure-results  
 
       - name: Print test failure message
         if: steps.tests.outcome != 'success'
