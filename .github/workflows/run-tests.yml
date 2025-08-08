@@ -1,4 +1,4 @@
-name: Run API Tests with Docker Hub Login
+name: Run API Tests with Docker
 
 on:
   push:
@@ -16,52 +16,66 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Setup Java for tests
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup .NET for EF Core
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 9.0.x
+
       - name: Create Docker network
-        run: docker network create timedeposit-net || true
+        run: docker network create timedeposit-net
 
       - name: Start Postgres container
         run: |
-          docker run -d --rm --name test-db \
+          docker run -d --name test-db \
             --network timedeposit-net \
             -e POSTGRES_USER=postgres \
             -e POSTGRES_PASSWORD=1234 \
             -e POSTGRES_DB=timedeposit \
             -p 5432:5432 \
             postgres:15
+          sleep 10 # Wait for DB to initialize
 
-      - name: Pull backend image
-        run: docker pull ashraf354/timedeposit-backend:latest
+      - name: Build .NET application
+        run: |
+          dotnet restore
+          dotnet build -c Release
+
+      - name: Apply EF Core Migrations
+        run: |
+          dotnet tool install --global dotnet-ef
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          dotnet ef database update \
+            --project TimeDepositAPI.csproj \
+            --connection "Host=test-db;Port=5432;Database=timedeposit;Username=postgres;Password=1234"
 
       - name: Start backend container
         run: |
-          docker run -d --rm --name backend \
+          docker build -t timedeposit-backend .
+          docker run -d --name backend \
             --network timedeposit-net \
             -e ASPNETCORE_ENVIRONMENT=Development \
             -e ConnectionStrings__DefaultConnection="Host=test-db;Port=5432;Database=timedeposit;Username=postgres;Password=1234;" \
             -p 8080:8080 \
-            ashraf354/timedeposit-backend:latest
+            timedeposit-backend
+          sleep 15 # Wait for backend to start
 
-      - name: Setup .NET SDK for EF Migrations
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: 9.0.x
-
-      - name: Run EF Core Migrations
+      - name: Verify backend health
         run: |
-          dotnet tool install --global dotnet-ef
-          export PATH="$PATH:$HOME/.dotnet/tools"
-          dotnet ef database update --project ./TimeDepositAPI.csproj --connection "Host=test-db;Port=5432;Database=timedeposit;Username=postgres;Password=1234"
-
-      - name: Wait for backend to be healthy
-        run: |
-          for i in {1..30}; do
-            if curl -s http://localhost:8080/health | grep -q "Healthy"; then
-              echo "✅ Backend is healthy!"
-              break
-            fi
-            echo "⏳ Waiting for backend to be ready..."
-            sleep 5
-          done
+          curl --retry 5 --retry-delay 5 --retry-all-errors http://localhost:8080/health
 
       - name: Run API Tests
+        env:
+          API_BASE_URL: http://localhost:8080
         run: mvn clean test
+
+      - name: Cleanup containers
+        if: always()
+        run: |
+          docker stop backend test-db || true
+          docker network rm timedeposit-net || true
