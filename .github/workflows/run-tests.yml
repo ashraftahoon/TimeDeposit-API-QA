@@ -1,5 +1,3 @@
-
-
 name: Run API Tests with Docker Hub Login
 
 on:
@@ -9,7 +7,6 @@ on:
       - test-actions
   pull_request:
   workflow_dispatch:
-
 
 jobs:
   test:
@@ -43,6 +40,10 @@ jobs:
             -e ConnectionStrings__DefaultConnection="Host=test-db;Port=5432;Database=timedeposit;Username=postgres;Password=1234;" \
             -p 8080:8080 \
             ashraf354/timedeposit-backend:latest
+
+      - name: Run EF Core migrations
+        run: |
+          docker exec backend dotnet ef database update
 
       - name: Wait for backend to be healthy
         run: |
