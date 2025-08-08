@@ -16,9 +16,9 @@ jobs:
       postgres:
         image: postgres:15
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: 1234
-          POSTGRES_DB: timedeposit
+          POSTGRES_USER: modealf
+          POSTGRES_PASSWORD: pass
+          POSTGRES_DB: time_deposit_db
         ports:
           - 5432:5432
         options: >-
@@ -59,7 +59,7 @@ jobs:
 
       - name: Run EF Core Migrations
         working-directory: ./backend
-        run: dotnet ef database update --connection "Host=localhost;Port=5432;Database=timedeposit;Username=postgres;Password=1234"
+        run: dotnet ef database update --connection "Host=localhost;Port=5432;Database=time_deposit_db;Username=modealf;Password=pass"
 
       - name: Start Backend API
         working-directory: ./backend
