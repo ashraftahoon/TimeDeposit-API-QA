@@ -1,19 +1,11 @@
-name: Run API Tests with Docker Hub Login
-
-on:
-  push:
-    branches:
-      - main
-      - test-actions
-  pull_request:
-  workflow_dispatch:
-
-
 jobs:
   test:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
       - name: Create Docker network
         run: docker network create timedeposit-net || true
 
