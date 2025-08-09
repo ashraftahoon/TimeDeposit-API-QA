@@ -49,7 +49,7 @@ dotnet run --urls "http://localhost:8080"**
 6. Generate and view Allure report By **allure serve**
 
 ## CI/CD Execution (GitHub Actions)
-# Automated Pipeline Triggers
+ Automated Pipeline Triggers
 - **On every push** to main branch
 - **On pull requests** (PR validation)
 
