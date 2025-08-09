@@ -55,9 +55,9 @@ dotnet run --urls "http://localhost:8080"**
 
 ## Mocking & Switching API Modes
 The API tests can be run against:
-1. Mock Mode – All external dependencies (e.g., payment gateway) are replaced with predefined mock responses. by useing commend **mvn test -DuseMock=true**
+1. Mock Mode – All external dependencies (e.g., payment gateway) are replaced with predefined mock responses. by useing commend (**mvn test -DuseMock=true**)
 2. Local Mode – Tests run against your locally hosted backend (http://localhost:8080).
-3. Real API Mode – Tests run against the deployed API in a staging or production environmen  **mvn test -DuseMock=false**
+3. Real API Mode – Tests run against the deployed API in a staging or production environmen by useing commend  (**mvn test -DuseMock=false**)
 
 ## Allure Report Access
 After the GitHub Actions workflow runs, the Allure report is available at:
