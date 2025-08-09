@@ -63,6 +63,3 @@ The API tests can be run against:
 After the GitHub Actions workflow runs, the Allure report is available at:
 **https://ashraftahoon.github.io/TimeDeposit-API-QA/**
 
-- **On pull requests** (PR validation)
-
-## To Open Allure Report Access this link after run script   # https://ashraftahoon.github.io/TimeDeposit-API-QA/
