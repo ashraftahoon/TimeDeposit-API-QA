@@ -100,7 +100,7 @@ jobs:
           if [ -d "target/allure-results" ]; then
             echo "Allure results generated"
           else
-            echo "::error::No Allure Report. results were generated"
+            echo "::error::No Allure. results were generated"
             exit 1
           fi
 
