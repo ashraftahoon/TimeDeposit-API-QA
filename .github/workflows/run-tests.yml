@@ -87,7 +87,7 @@ jobs:
               echo "Backend is healthy!"
               break
             fi
-            echo "Waiting for backend to be ready..."
+            echo "Waiting for backend to be ready....."
             sleep 3
           done
 
@@ -100,17 +100,17 @@ jobs:
           if [ -d "target/allure-results" ]; then
             echo "Allure results generated"
           else
-            echo "::error::No Allure. results were generated"
+            echo "::error::No Allure Report. results were generated."
             exit 1
           fi
 
-      - name: Install Allure Commandline
+      - name: Install Allure Commandline.
         if: always()
         run: |
           sudo apt-get update
           sudo apt-get install allure
 
-      - name: Build Allure report
+      - name: Build Allure report.
         if: always()
         uses: simple-elf/allure-report-action@v1.7
         with:
@@ -118,7 +118,7 @@ jobs:
           allure_report: allure-report
           allure_history: allure-history
 
-      - name: Deploy Allure report to GitHub Pages
+      - name: Deploy Allure report to GitHub Pages.
         if: always()
         uses: peaceiris/actions-gh-pages@v3
         with:
